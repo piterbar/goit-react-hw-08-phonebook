@@ -1,17 +1,24 @@
 import axios from 'axios';
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import { toast } from 'react-toastify';
+axios.defaults.baseURL = 'https://connections-api.herokuapp.com';
 
-// Ustawienie Base URL dla mockAPI
-axios.defaults.baseURL = 'https://6571af27d61ba6fcc01344b4.mockapi.io/';
+const token = {
+  set(token) {
+    axios.defaults.headers.common.Authorization = `Bearer ${token}`;
+  },
+  unset() {
+    axios.defaults.headers.common.Authorization = '';
+  },
+};
 
 const register = createAsyncThunk(
   'auth/register',
   async (credentials, thunkAPI) => {
     try {
-      // Dostosowanie endpointu do twojego mockAPI
-      const { data } = await axios.post('/contacts', credentials);
-      toast.success(`Hi ${data.name}, now you are signed up!`);
+      const { data } = await axios.post('/users/signup', credentials);
+      toast.success(`Hi ${data.user.name}, now you are signed up!`);
+      token.set(data.token);
       return data;
     } catch (error) {
       toast.error('Sorry, something went wrong');
@@ -22,44 +29,47 @@ const register = createAsyncThunk(
 
 const logIn = createAsyncThunk('auth/login', async (credentials, thunkAPI) => {
   try {
-    // Dostosowanie endpointu do twojego mockAPI
-    const { data } = await axios.post('/contacts', credentials);
-    toast.success(`Hi ${data.name}, you are logged in!`);
+    const { data } = await axios.post('/users/login', credentials);
+    toast.success(`Hi ${data.user.name}, you are logged in!`);
+    token.set(data.token);
     return data;
   } catch (error) {
     toast.error('Something went wrong, check your email or password');
     return thunkAPI.rejectWithValue(error.message);
   }
 });
-
 const logOut = createAsyncThunk('auth/logout', async (_, thunkAPI) => {
   try {
-    // Uproszczenie operacji wylogowania
+    await axios.post('/users/logout');
     toast.info(`Bye, see you next time!`);
+    token.unset();
   } catch (error) {
     toast.error('Sorry, something went wrong');
     return thunkAPI.rejectWithValue(error.message);
   }
 });
-
 const fetchCurrentUser = createAsyncThunk(
   'auth/refresh',
   async (_, thunkAPI) => {
+    const state = thunkAPI.getState();
+    const persistedToken = state.auth.token;
+
+    if (persistedToken === null) {
+      return thunkAPI.rejectWithValue();
+    }
+    token.set(persistedToken);
     try {
-      // Dostosowanie endpointu do twojego mockAPI
-      const { data } = await axios.get('/contacts');
+      const { data } = await axios.get('/users/current');
       return data;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.message);
     }
   }
 );
-
 const operations = {
   register,
   logOut,
   logIn,
   fetchCurrentUser,
 };
-
 export default operations;
